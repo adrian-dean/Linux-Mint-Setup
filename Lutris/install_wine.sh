@@ -1,6 +1,7 @@
 #!/bin/bash
 
 echo "Starting Wine Staging installation for Linux Mint 22.x (Ubuntu 24.04 Noble base)..."
+echo "This script will automatically confirm installation prompts."
 
 # Step 1: Enable 32-bit architecture (multiarch)
 echo "1. Enabling 32-bit architecture..."
@@ -16,15 +17,14 @@ echo "3. Adding WineHQ repository for Noble (Ubuntu 24.04 base)..."
 # Using -NP to prevent overwriting if file exists and -P to specify directory
 sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources || { echo "Failed to add WineHQ repository. Exiting."; exit 1; }
 
-# Step 4: Update package lists
+# Step 4: Update package lists (added -y for auto-confirmation)
 echo "4. Updating package lists..."
-sudo apt update || { echo "Failed to update apt. Exiting."; exit 1; }
+sudo apt update -y || { echo "Failed to update apt. Exiting."; exit 1; }
 
-# Step 5: Install the Wine Staging branch
+# Step 5: Install the Wine Staging branch (added -y for auto-confirmation)
 echo "5. Installing Wine Staging branch..."
-sudo apt install --install-recommends winehq-staging || { echo "Failed to install winehq-staging. Exiting."; exit 1; }
+sudo apt install --install-recommends winehq-staging -y || { echo "Failed to install winehq-staging. Exiting."; exit 1; }
 
 echo "Wine Staging installation complete!"
 echo "You can now run 'winecfg' in your terminal to set up Wine."
 echo "If you encounter issues, please refer to the WineHQ wiki: https://gitlab.winehq.org/wine/wine/-/wikis/Debian-Ubuntu"
-
