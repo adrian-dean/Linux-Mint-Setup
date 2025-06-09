@@ -4,3 +4,6 @@ Currently running Linux Mint 22 (Xia), and I'm having to follow the guides below
 
   1. https://militarycac.com/linux.htm
   2. https://github.com/jdjaxon/linux_cac
+
+
+When you execute any of the scripts, type "sudo [file location]." You can drag and drop the file instead of typing the entire file location.
