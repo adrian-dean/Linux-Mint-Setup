@@ -1,4 +1,4 @@
-I've archived these scripts just in case I need to use them later. Feel free to use them!
+I've archived this script just in case I need to use it later. Feel free to use it!
 
 Currently running Linux Mint 22 (Xia), and I'm having to follow the guides below in order to set this up. I've created this script to make the process easier.
 
