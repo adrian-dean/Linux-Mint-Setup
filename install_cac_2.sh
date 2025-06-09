@@ -16,51 +16,18 @@ check_root() {
 # --- Main script starts here ---
 check_root
 
-log_message "Starting CAC installation and configuration..."
-
-# --- Detect Linux Distribution ---
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    DISTRO=$ID
-    VERSION_ID=$VERSION_ID
-else
-    echo "Cannot determine Linux distribution. Exiting."
-    exit 1
-fi
-
-log_message "Detected distribution: $DISTRO (Version: $VERSION_ID)"
+log_message "Starting CAC installation and configuration for Linux Mint..."
 
 # --- Install Packages ---
-log_message "Installing necessary packages..."
+log_message "Updating package lists and installing necessary packages..."
 
-case "$DISTRO" in
-    ubuntu|debian|linuxmint|pop)
-        sudo apt update
-        sudo apt install -y pcscd pcsc-tools libacr38u libacr38u-dev libccid opensc opensc-pkcs11 coolkey libnss3-tools
-        if [ $? -ne 0 ]; then
-            echo "Error: Failed to install packages using apt. Please check your internet connection and package names."
-            exit 1
-        fi
-        ;;
-    fedora|centos|rhel)
-        sudo dnf install -y pcsc-lite pcsc-tools ccid opensc opensc-pkcs11 coolkey nss-tools
-        if [ $? -ne 0 ]; then
-            echo "Error: Failed to install packages using dnf. Please check your internet connection and package names."
-            exit 1
-        fi
-        ;;
-    arch|manjaro)
-        sudo pacman -Sy --noconfirm pcscd pcsc-tools ccid opensc coolkey nss
-        if [ $? -ne 0 ]; then
-            echo "Error: Failed to install packages using pacman. Please check your internet connection and package names."
-            exit 1
-        fi
-        ;;
-    *)
-        echo "Unsupported distribution: $DISTRO. Please install packages manually."
-        exit 1
-        ;;
-esac
+sudo apt update
+sudo apt install -y pcscd pcsc-tools libacr38u libacr38u-dev libccid opensc opensc-pkcs11 coolkey libnss3-tools
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to install packages using apt. Please check your internet connection and package names."
+    exit 1
+fi
 
 log_message "Packages installed successfully."
 
@@ -84,30 +51,31 @@ log_message "Smart card reader test complete. If you saw 'Card present: Yes', yo
 
 # --- Provide Web Browser Configuration Instructions ---
 log_message "--- Next Steps: Web Browser Configuration & DoD Certificates ---"
-echo "The core components for CAC support are now installed."
-echo "However, you MUST perform these steps manually:"
+echo "The core components for CAC support are now installed on your Linux Mint system."
+echo "However, you MUST perform these steps manually to fully enable CAC usage:"
 echo ""
-echo "1.  **Configure Web Browsers (Firefox/Chrome):**"
+echo "1.  **Configure Web Browsers (Firefox/Chrome/Chromium):**"
 echo "    * **Mozilla Firefox:**"
-echo "        1.  Open Firefox, go to 'Settings' (hamburger menu) -> 'Privacy & Security'."
-echo "        2.  Scroll to 'Certificates' and click 'Security Devices...'."
-echo "        3.  Click 'Load', give it a name (e.g., 'OpenSC'), and for 'Module filename', use one of these common paths:"
-echo "            -   /usr/lib/x86_64-linux-gnu/opensc-pkcs11.so (most common for 64-bit Debian/Ubuntu)"
-echo "            -   /usr/lib/opensc-pkcs11.so"
-echo "            -   /usr/lib64/opensc-pkcs11.so (common for 64-bit Fedora/Red Hat)"
-echo "        4.  (Optional) If you installed CoolKey, try /usr/lib/libcoolkeypk11.so"
+echo "        1.  Open Firefox, go to 'Settings' (or the hamburger menu) -> 'Privacy & Security'."
+echo "        2.  Scroll down to 'Certificates' and click 'Security Devices...'."
+echo "        3.  Click 'Load', give it a name (e.g., 'OpenSC' or 'CAC Reader')."
+echo "        4.  For 'Module filename', use the common path for 64-bit Debian/Ubuntu systems:"
+echo "            /usr/lib/x86_64-linux-gnu/opensc-pkcs11.so"
+echo "            (If you also installed CoolKey and want to try it, its path might be /usr/lib/x86_64-linux-gnu/libcoolkeypk11.so or /usr/lib/libcoolkeypk11.so)"
 echo "        5.  Click 'OK'."
 echo "    * **Google Chrome/Chromium:**"
-echo "        Chrome often works out-of-the-box with OpenSC, but if not, you can try this command in your terminal:"
+echo "        Chrome often works out-of-the-box with OpenSC. If it doesn't, you can try adding the module to its NSS database via the terminal:"
 echo "        modutil -add \"OpenSC\" -libfile /usr/lib/x86_64-linux-gnu/opensc-pkcs11.so -dbdir sql:\$HOME/.pki/nssdb"
-echo "        (Adjust the -libfile path if necessary, use one of the paths mentioned for Firefox.)"
+echo "        (The path for '-libfile' is the same as for Firefox. The '\$HOME' ensures it uses your user's NSS database.)"
 echo ""
 echo "2.  **Install DoD Certificates:**"
 echo "    * You need to install the DoD Root Certificates for many government websites to trust your CAC."
-echo "    * **Download:** Obtain the official DoD Root Certificates from a trusted source (e.g., searching for 'DoD Root Certificates' on a government website)."
-echo "    * **Import into Firefox:** In Firefox, go to 'Settings' -> 'Privacy & Security' -> 'View Certificates...' -> 'Authorities' tab -> 'Import...'. Import each certificate file and choose 'Trust this CA to identify websites'."
-echo "    * **System-wide (for Chrome/system trust):**"
-echo "        -   **Debian/Ubuntu:** Copy .crt/.pem files to /usr/local/share/ca-certificates/dod/ then run 'sudo update-ca-certificates'."
-echo "        -   **Fedora/Red Hat:** Copy .crt/.pem files to /etc/pki/ca-trust/source/anchors/ then run 'sudo update-ca-trust extract'."
+echo "    * **Download:** Obtain the official DoD Root Certificates from a trusted source (e.g., search for 'DoD Root Certificates' on a government website you need to access). They often come in a .zip file."
+echo "    * **Import into Firefox:** In Firefox, go to 'Settings' -> 'Privacy & Security' -> 'View Certificates...' -> 'Authorities' tab -> 'Import...'. Import each certificate file (typically .der or .p7b) and select 'Trust this CA to identify websites'."
+echo "    * **Import System-wide (Recommended for Chrome and overall system trust):**"
+echo "        1.  Extract the downloaded DoD certificates. You'll likely find .cer or .der files. Convert them to .crt if necessary (e.g., 'openssl x509 -inform der -in certificate.der -out certificate.crt')."
+echo "        2.  Create a directory for them: sudo mkdir -p /usr/local/share/ca-certificates/dod"
+echo "        3.  Copy the .crt files to this directory: sudo cp /path/to/your/dod_certs/*.crt /usr/local/share/ca-certificates/dod/"
+echo "        4.  Update the system's certificate store: sudo update-ca-certificates"
 echo ""
 log_message "CAC installation script finished. Please proceed with the manual browser and certificate steps."
