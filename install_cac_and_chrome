@@ -1,0 +1,159 @@
+#!/bin/bash
+
+# This script automates the setup of CAC reader support and Google Chrome Stable
+# on Linux Mint. It performs system updates, installs necessary smart card
+# packages, configures browser integration for CAC, and installs Chrome.
+
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+echo "Starting combined CAC reader and Google Chrome setup script for Linux Mint..."
+echo "This script will require sudo privileges for package installation and system configuration."
+
+# --- Section 1: System Preparation ---
+echo ""
+echo "--- Section 1: Updating and upgrading system packages ---"
+sudo apt update -y
+sudo apt upgrade -y
+echo "System packages updated and upgraded."
+
+# --- Section 2: CAC Reader Setup ---
+
+# Step 2.1: Install Core CAC and Smart Card Packages
+echo ""
+echo "--- Section 2.1: Installing core CAC and smart card packages ---"
+# pcscd: PC/SC Smart Card Daemon - essential for smart card communication
+# pcsc-tools: Utilities for PC/SC (e.g., pcsc_scan)
+# libccid: Common Interface Device driver for PC/SC smart card readers
+# opensc: Smart card utilities and drivers, including PKCS#11 module for various cards
+# libpam-pkcs11: PAM module for PKCS#11 (for authentication via smart card)
+# coolkey: Smart card PKCS#11 module, often used with DoD CAC cards
+# libcackey: Another smart card PKCS#11 module specific for CAC cards
+# libnss3-tools: Network Security Services tools, required for browser integration
+sudo apt install -y pcscd pcsc-tools libccid opensc libpam-pkcs11 coolkey libcackey libnss3-tools
+
+echo "Core CAC and smart card packages installed."
+
+# Step 2.2: Configure Browser Integration for CAC (Firefox/Chrome)
+# This step adds the OpenSC and Coolkey PKCS#11 modules to your browser's NSS database.
+# This allows the browser to use your CAC card for secure website authentication.
+
+# Firefox Configuration
+echo ""
+echo "--- Section 2.2a: Configuring Firefox for CAC reader integration ---"
+# Find the default Firefox profile directory.
+FIREFOX_PROFILE_DIR=$(find ~/.mozilla/firefox/ -maxdepth 1 -type d -name "*.default-release" -print -quit)
+if [ -z "$FIREFOX_PROFILE_DIR" ]; then
+    echo "Warning: Could not find a default Firefox profile directory. Please ensure Firefox has been opened at least once."
+else
+    # Add OpenSC PKCS#11 module
+    modutil -dbdir "$FIREFOX_PROFILE_DIR" -add "OpenSC PKCS#11 Module" -libfile /usr/lib/x86_64-linux-gnu/opensc-pkcs11.so -force || \
+    echo "Note: OpenSC PKCS#11 module for Firefox might already be added or path is incorrect."
+    
+    # Add CoolKey PKCS#11 module
+    modutil -dbdir "$FIREFOX_PROFILE_DIR" -add "CoolKey PKCS#11 Module" -libfile /usr/lib/x86_64-linux-gnu/pkcs11/coolkey.so -force || \
+    echo "Note: CoolKey PKCS#11 module for Firefox might already be added or path is incorrect."
+    
+    echo "Firefox configuration commands executed. You may need to restart Firefox."
+fi
+
+# Chrome/Chromium Configuration
+echo ""
+echo "--- Section 2.2b: Configuring Chrome/Chromium for CAC reader integration (system-wide) ---"
+# Chromium/Chrome often uses the system-wide NSS database or can load modules directly.
+# The `modutil` command below adds the modules to the default system-wide NSS database,
+# which many Chromium-based browsers can utilize.
+NSS_DB_DIR="${HOME}/.pki/nssdb"
+
+# Create NSS database if it doesn't exist
+if [ ! -d "$NSS_DB_DIR" ]; then
+    echo "Creating NSS database directory: $NSS_DB_DIR"
+    mkdir -p "$NSS_DB_DIR"
+    certutil -N -d "sql:$NSS_DB_DIR" --empty-password || echo "Failed to create NSS database for Chrome/Chromium."
+fi
+
+if [ -d "$NSS_DB_DIR" ]; then
+    # Add OpenSC PKCS#11 module
+    modutil -dbdir "sql:$NSS_DB_DIR" -add "OpenSC PKCS#11 Module" -libfile /usr/lib/x86_64-linux-gnu/opensc-pkcs11.so -force || \
+    echo "Note: OpenSC PKCS#11 module for Chrome/Chromium might already be added or path is incorrect."
+
+    # Add CoolKey PKCS#11 module
+    modutil -dbdir "sql:$NSS_DB_DIR" -add "CoolKey PKCS#11 Module" -libfile /usr/lib/x86_64-linux-gnu/pkcs11/coolkey.so -force || \
+    echo "Note: CoolKey PKCS#11 module for Chrome/Chromium might already be added or path is incorrect."
+    
+    echo "Chrome/Chromium configuration commands executed. You may need to restart your browser."
+fi
+
+# Step 2.3: Restart PC/SC Daemon Service
+echo ""
+echo "--- Section 2.3: Restarting PC/SC Daemon service ---"
+sudo systemctl restart pcscd
+echo "PC/SC Daemon service restarted."
+
+# --- Section 3: Google Chrome Installation ---
+
+# Step 3.1: Define Chrome Stable .deb download URL
+CHROME_DEB_URL="https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
+DEB_FILE_NAME="google-chrome-stable_current_amd64.deb"
+
+# Step 3.2: Remove any existing Chrome installations (optional but good practice)
+echo ""
+echo "--- Section 3.1: Attempting to remove any existing Google Chrome installations ---"
+# This helps prevent conflicts if a partial or older installation exists.
+# We use `|| true` to prevent the script from exiting if the package isn't found.
+sudo apt remove --purge google-chrome-stable google-chrome-beta google-chrome-unstable -y || true
+echo "Attempted to remove existing Chrome installations."
+
+# Step 3.3: Download the Google Chrome .deb package
+echo ""
+echo "--- Section 3.2: Downloading Google Chrome .deb package ---"
+echo "Downloading from: $CHROME_DEB_URL"
+wget -O "$DEB_FILE_NAME" "$CHROME_DEB_URL"
+echo "Download complete: $DEB_FILE_NAME"
+
+# Step 3.4: Install the Google Chrome .deb package
+echo ""
+echo "--- Section 3.3: Installing Google Chrome ---"
+# `sudo apt install ./<package_name>.deb` handles dependencies automatically.
+sudo apt install "./$DEB_FILE_NAME" -y
+echo "Google Chrome installation complete."
+
+# Step 3.5: Clean up the downloaded .deb file
+echo ""
+echo "--- Section 3.4: Cleaning up downloaded .deb file ---"
+rm "$DEB_FILE_NAME"
+echo "Removed $DEB_FILE_NAME"
+
+# --- Section 4: Verification and Next Steps ---
+echo ""
+echo "--- Section 4: Verification and Next Steps ---"
+echo "Setup script completed. Please perform the following checks:"
+echo ""
+echo "--- For CAC Reader Setup: ---"
+echo "1. Verify pcscd service status:"
+echo "   systemctl status pcscd"
+echo "   It should show 'active (running)'."
+echo ""
+echo "2. Check your CAC reader with pcsc_scan (with CAC card inserted):"
+echo "   pcsc_scan"
+echo "   You should see output indicating your reader and card are detected."
+echo "   Press Ctrl+C to exit pcsc_scan."
+echo ""
+echo "3. Restart your web browser (Firefox/Chrome) and try accessing a CAC-enabled website."
+echo "   For Firefox, go to Edit -> Preferences -> Privacy & Security -> Certificates -> Security Devices to see if OpenSC and CoolKey are listed."
+echo ""
+
+echo "--- For Google Chrome Installation: ---"
+echo "4. To verify Google Chrome installation, you can launch it from your applications menu."
+echo "   Alternatively, run the following command in your terminal:"
+echo "   google-chrome --version"
+echo "   If the version number is displayed, Google Chrome is successfully installed."
+echo ""
+echo "If you encounter issues with either CAC or Chrome, consider the following:"
+echo " - Ensure your CAC reader is properly connected."
+echo " - Double-check the physical CAC card insertion."
+echo " - Consult specific guides for your organization's CAC setup (e.g., DoD)."
+echo " - Search for error messages online if problems persist."
+
+echo ""
+echo "Combined setup script finished. Good luck!"
