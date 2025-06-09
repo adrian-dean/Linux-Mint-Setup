@@ -21,11 +21,13 @@ log_message "Starting CAC installation and configuration for Linux Mint..."
 # --- Install Packages ---
 log_message "Updating package lists and installing necessary packages..."
 
+# Removed libacr38u and libacr38u-dev as they may not be available or needed in newer distros
 sudo apt update
-sudo apt install -y pcscd pcsc-tools libacr38u libacr38u-dev libccid opensc opensc-pkcs11 coolkey libnss3-tools
+sudo apt install -y pcscd pcsc-tools libccid opensc opensc-pkcs11 coolkey libnss3-tools
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to install packages using apt. Please check your internet connection and package names."
+    echo "It's possible some packages are still missing. You can try installing them manually if issues persist."
     exit 1
 fi
 
@@ -44,10 +46,18 @@ fi
 # --- Test Smart Card Reader ---
 log_message "Testing smart card reader (insert your CAC now if it's not in)..."
 echo "Running 'pcsc_scan' for 10 seconds. Press Ctrl+C to stop early."
-timeout 10 pcsc_scan
+# Ensure 'timeout' command is available (part of coreutils, usually present)
+if ! command -v timeout &> /dev/null; then
+    echo "Warning: 'timeout' command not found. Skipping timed pcsc_scan."
+    echo "You can run 'pcsc_scan' manually and press Ctrl+C to exit."
+    pcsc_scan
+else
+    timeout 10 pcsc_scan
+fi
 echo "" # Newline for better readability
 
-log_message "Smart card reader test complete. If you saw 'Card present: Yes', your reader is detected."
+log_message "Smart card reader test complete. If you saw 'Card present: Yes' in the output, your reader is detected."
+echo "If not, please ensure your reader is connected and recognized by the system."
 
 # --- Provide Web Browser Configuration Instructions ---
 log_message "--- Next Steps: Web Browser Configuration & DoD Certificates ---"
